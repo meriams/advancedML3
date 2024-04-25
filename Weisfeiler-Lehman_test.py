@@ -12,9 +12,6 @@ wl_list = []
 for data in train_loader:
     G = nx.Graph()
 
-    for index, features in enumerate(data.x):
-        G.add_node(index, features=tuple(features.tolist()))
-
     for i in range(data.edge_index.shape[1]):
         source = data.edge_index[0, i].item()  # source node index
         target = data.edge_index[1, i].item()  # target node index
