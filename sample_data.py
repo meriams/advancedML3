@@ -1,5 +1,5 @@
 import networkx as nx 
-import matplotlib as plt
+import matplotlib.pyplot as plt 
 from torch_geometric.datasets import TUDataset
 from torch_geometric.loader import DataLoader
 
@@ -54,7 +54,6 @@ def get_hashes_from_graphs(graphs):
 def sample_evaluation(graph, training_hashes):
     hashes = get_hashes_from_graphs(graph)
     total_length = len(hashes)
-    print(type(hashes))
     
     novel = 0
     unique = 0
@@ -79,15 +78,15 @@ def full_evaluation(baseline_graph, vae_graph, training_hashes):
     vae_data = sample_evaluation(vae_graph, training_hashes)
     return baseline_data, vae_data
 
-def graph_statistics(Graph):
+def graph_statistics(Graphs):
     node_degree = []
     clustering_coefficient = []
     eigenvector_centrality = []
     for i in range(1000):
-        G = Graph[i]
+        G = Graphs[i]
         node_degree.append(G.degree)
         clustering_coefficient.append(nx.clustering(G))
-        eigenvector_centrality.append(nx.eigenvector_centrality(G))
+        eigenvector_centrality.append(nx.eigenvector_centrality(G, max_iter=10000))
     return node_degree, clustering_coefficient, eigenvector_centrality
 
 def show_graphs(degree_graph, clustering_graph, eigenvector_graph):
@@ -97,15 +96,15 @@ def show_graphs(degree_graph, clustering_graph, eigenvector_graph):
         plt.figure()
         plt.title(titles[i])
         plt.hist(d, bins=20)
-        plt.pyplot.xlabel('Interval')
-        plt.pyplot.xlabel('Amount')
+        plt.xlabel('Interval')
+        plt.xlabel('Amount')
         plt.show()
-
 def main():
     baseline_graph = [nx.erdos_renyi_graph(28, p=(7442 / 71064)) for _ in range(1000)]
+    vae_graph = [nx.erdos_renyi_graph(28, p=(7442 / 71064)) for _ in range(1000)]
     training_graph = get_training_graph()
     training_hashes = get_hashes_from_graphs(training_graph)
     evaluation = sample_evaluation(baseline_graph, training_hashes)
-    print(evaluation)
-    # novelty_results = full_evaluation(baseline_graph, vae_graph, training_hashes)
-    # statistic_results = graph_statistics(training_graph)
+    novelty_results = full_evaluation(baseline_graph, vae_graph, training_hashes)
+    node_degree, clustering_coefficient, eigenvector_centrality = graph_statistics(baseline_graph)
+    # show_graphs(node_degree, clustering_coefficient, eigenvector_centrality)
