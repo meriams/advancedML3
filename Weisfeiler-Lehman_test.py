@@ -10,6 +10,7 @@ train_loader = DataLoader(mutag, batch_size=1)
 wl_list = []
 
 for data in train_loader:
+    
     G = nx.Graph()
 
     for i in range(data.edge_index.shape[1]):
