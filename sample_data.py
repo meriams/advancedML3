@@ -34,9 +34,6 @@ def get_training_graph():
         
         G = nx.Graph()
 
-        for i in range(max_nodes):
-            G.add_node(i)
-
         for i in range(data.edge_index.shape[1]):
             source = data.edge_index[0, i].item()  # source node index
             target = data.edge_index[1, i].item()  # target node index
