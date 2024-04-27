@@ -98,7 +98,12 @@ def show_graphs(degree_graph, clustering_graph, eigenvector_graph):
         plt.show()
 def main():
     baseline_graph = [nx.erdos_renyi_graph(28, p=(7442 / 71064)) for _ in range(1000)]
-    vae_graph = [nx.erdos_renyi_graph(28, p=(7442 / 71064)) for _ in range(1000)]
+
+    vae_graph = []
+    for i in range(1000):
+        graph = nx.read_adjlist(f"graphs/graph_{i}.adjlist")
+        vae_graph.append(graph)
+    
     training_graph = get_training_graph()
     training_hashes = get_hashes_from_graphs(training_graph)
     evaluation = sample_evaluation(baseline_graph, training_hashes)
