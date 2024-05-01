@@ -133,9 +133,16 @@ def main():
     training_node_list, training_probability_list, max_nodes = get_training_values()
     max_index = len(training_node_list) - 1
     baseline_graphs = []
-    for i in range(1000):
+        for i in range(1000):
         ran_index = random.randint(0,max_index)
-        temp_G = nx.erdos_renyi_graph(training_node_list[ran_index], p=training_probability_list[ran_index])
+
+        nodes = training_node_list[ran_index]
+        indexes = [index for index, value in enumerate(training_node_list) if value == nodes]
+
+        selected_probabilities = [training_probability_list[index] for index in indexes]
+        probability = np.mean(selected_probabilities)
+
+        temp_G = nx.erdos_renyi_graph(nodes, p=probability)
         temp_G.remove_nodes_from(list(nx.isolates(temp_G)))
         baseline_graphs.append(temp_G)
 
