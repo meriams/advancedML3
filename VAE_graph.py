@@ -45,6 +45,7 @@ class GaussianEncoder(nn.Module):
 
         self.gcn1 = GCNConv(num_features, hidden_dim)
         self.gcn2 = GCNConv(hidden_dim, hidden_dim)
+        self.bn1 = nn.BatchNorm1d(hidden_dim)
         self.pool = global_mean_pool
 
         self.fc_mean = nn.Linear(hidden_dim, latent_dim)
@@ -55,7 +56,10 @@ class GaussianEncoder(nn.Module):
         Forward pass of the encoder, producing a Gaussian distribution for the entire graph.
         """
         x = self.relu(self.gcn1(x, edge_index))
-        x = self.relu(self.gcn2(x, edge_index))
+        x = self.gcn2(x, edge_index)
+        x = self.bn1(x)
+        x = self.relu(x)
+
         x = self.pool(x, batch_index)
 
         mean = self.fc_mean(x)
@@ -69,11 +73,13 @@ class GraphDecoder(nn.Module):
         super(GraphDecoder, self).__init__()
         self.latent_dim = latent_dim
         self.max_nodes = max_nodes
-        self.fc1 = nn.Linear(latent_dim, max_nodes * max_nodes)
+        self.fc1 = nn.Linear(latent_dim, hidden_dim)
+        self.fc2 = nn.Linear(hidden_dim, max_nodes * max_nodes)
         self.sigmoid = nn.Sigmoid()
 
     def forward(self, z):
-        logits = self.fc1(z)
+        z = self.fc1(z)
+        logits = self.fc2(z)
         logits = logits.view(-1, self.max_nodes, self.max_nodes)
 
         # Symmetrize the logits
@@ -100,7 +106,7 @@ class VAE(nn.Module):
         q_z = self.encoder(features, edge_index, batch)
         z = q_z.rsample()
         probabilities = self.decoder(z)
-        p_x = td.Independent(td.Bernoulli(probabilities), 3)
+        p_x = td.Independent(td.Bernoulli(probabilities), 2)
 
         adj = to_dense_adj(edge_index, batch=batch, max_num_nodes=self.max_nodes)
         log_prob = p_x.log_prob(adj).sum()
@@ -167,9 +173,9 @@ if __name__ == "__main__":
                         help='file to save samples in (default: %(default)s)')
     parser.add_argument('--device', type=str, default='cpu', choices=['cpu', 'cuda', 'mps'],
                         help='torch device (default: %(default)s)')
-    parser.add_argument('--batch', type=int, default=16, metavar='N',
+    parser.add_argument('--batch', type=int, default=64, metavar='N',
                         help='batch size for training (default: %(default)s)')
-    parser.add_argument('--epochs', type=int, default=25000, metavar='N',
+    parser.add_argument('--epochs', type=int, default=1000, metavar='N',
                         help='number of epochs to train (default: %(default)s)')
 
     args = parser.parse_args()
@@ -224,5 +230,6 @@ if __name__ == "__main__":
                     source = edge_index[0, i].item()  # source node index
                     target = edge_index[1, i].item()  # target node index
                     G.add_edge(source, target)
+
 
                 nx.write_adjlist(G, f"graphs/graph_{idx}.adjlist")
