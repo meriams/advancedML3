@@ -2,6 +2,7 @@ import networkx as nx
 import matplotlib.pyplot as plt
 from torch_geometric.datasets import TUDataset
 from torch_geometric.loader import DataLoader
+from collections import Counter
 import random
 import numpy as np
 import os
@@ -14,15 +15,11 @@ def get_training_values():
     node_list = []
     probability_list = []
     max_nodes = 0
+
     for data in train_loader:
         max_nodes = max(max_nodes, data.num_nodes)
 
-
-    for data in train_loader:
-        total_possible_edges = 0
-        total_edges = 0
-        for num in range(data.num_nodes):
-            total_possible_edges += num
+        total_possible_edges = data.num_nodes * (data.num_nodes - 1) / 2
         probability = len(data.edge_index[0]) / total_possible_edges
         node_list.append(data.num_nodes)
         probability_list.append(probability)
@@ -60,23 +57,15 @@ def get_hashes_from_graphs(graphs):
 def sample_evaluation(graph, training_hashes):
     hashes = get_hashes_from_graphs(graph)
     total_length = len(hashes)
-    
-    novel = 0
-    unique = 0
-    novel_unique = 0
-    for i, b_hash in enumerate(hashes):
-        temp_hashes = hashes.copy()
-        temp_hashes.pop(i)
-        crit1 = False
-        crit2 = False
-        if b_hash not in training_hashes:
-            novel += 1
-            crit1 = True
-        if b_hash not in temp_hashes:
-            unique += 1
-            crit2 = True
-        if crit1 and crit2:
-            novel_unique += 1
+
+    training_hash_set = set(training_hashes)
+
+    hash_counter = Counter(hashes)
+
+    novel = sum(1 for h in hashes if h not in training_hash_set)
+    unique = sum(1 for h, count in hash_counter.items() if count == 1)
+    novel_unique = sum(1 for h, count in hash_counter.items() if h not in training_hash_set and count == 1)
+
     return float(novel / total_length), float(unique / total_length), float(novel_unique / total_length)
 
 def full_evaluation(baseline_graph, vae_graph, training_hashes):
@@ -88,7 +77,7 @@ def graph_statistics(Graphs):
     node_degree = []
     clustering_coefficient = []
     eigenvector_centrality = []
-    for i in range(1000):
+    for i in range(len(Graphs)):
         G = Graphs[i]
         node_degree.append(G.degree)
         clustering_coefficient.append(nx.clustering(G))
@@ -99,7 +88,7 @@ def get_buckets(node_degree, clustering_coefficient, eigenvector_centrality):
     degree_bucket = []
     clustering_bucket = []
     eigenvector_bucket = []
-    for index in range(1000):
+    for index in range(len(node_degree)):
         for val in node_degree[index]:
             degree_bucket.append(val[1])
         for val in clustering_coefficient[index].items():
@@ -117,23 +106,25 @@ def get_min_max(val_list):
     return max_val, min_val
 
 
-def show_graphs(degree_list, clustering_list, eigenvector_list):
+def show_graphs(degree_list, clustering_list, eigenvector_list, model_text):
     degree_bucket, clustering_bucket, eigenvector_bucket = get_buckets(degree_list, clustering_list, eigenvector_list)
     data = [degree_bucket, clustering_bucket, eigenvector_bucket]
     titles = ['Node Degree', 'Clustering Coefficient', 'Eigenvector Centrality']
     for i, d in enumerate(data):
         plt.figure()
-        plt.title(titles[i])
+        plt.title(f"{model_text} - {titles[i]}")
         plt.hist(d, bins=20)
         plt.xlabel('Interval')
         plt.xlabel('Amount')
+        plt.savefig(f"plots/{model_text}-{titles[i]}.png")
         plt.show()
 
 def main():
     training_node_list, training_probability_list, max_nodes = get_training_values()
     max_index = len(training_node_list) - 1
     baseline_graphs = []
-        for i in range(1000):
+
+    for i in range(1000):
         ran_index = random.randint(0,max_index)
 
         nodes = training_node_list[ran_index]
@@ -148,7 +139,7 @@ def main():
 
     vae_graphs = []
     for i in range(1000):
-        graph = nx.read_adjlist(f"graphs/graphs/graph_{i}.adjlist")
+        graph = nx.read_adjlist(f"graphs/graph_{i}.adjlist")
         vae_graphs.append(graph)
 
     training_graph = get_training_graph()
@@ -156,10 +147,12 @@ def main():
     # evaluation = sample_evaluation(baseline_graphs, training_hashes)
     novelty_results = full_evaluation(baseline_graphs, vae_graphs, training_hashes)
     print(novelty_results)
+    training_node_degree, training_clustering_coefficient, training_eigenvector_centrality = graph_statistics(training_graph)
     base_node_degree, base_clustering_coefficient, base_eigenvector_centrality = graph_statistics(baseline_graphs)
     vae_node_degree, vae_clustering_coefficient, vae_eigenvector_centrality = graph_statistics(vae_graphs)
-    show_graphs(base_node_degree, base_clustering_coefficient, base_eigenvector_centrality)
-    show_graphs(vae_node_degree, vae_clustering_coefficient, vae_eigenvector_centrality)
+    show_graphs(training_node_degree, training_clustering_coefficient, training_eigenvector_centrality, "Training")
+    show_graphs(base_node_degree, base_clustering_coefficient, base_eigenvector_centrality, "Baseline")
+    show_graphs(vae_node_degree, vae_clustering_coefficient, vae_eigenvector_centrality, "VAE")
 
 
 main()
